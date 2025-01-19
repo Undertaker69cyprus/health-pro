@@ -31,7 +31,11 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker build -t addi2/endtoendproject:v1 .'
+                    // Using sudo to run docker commands
+                    sh '''
+                        sudo chown jenkins:jenkins /var/run/docker.sock
+                        docker build -t addi2/endtoendproject:v1 .
+                    '''
                 }
             }
         }
@@ -39,8 +43,10 @@ pipeline {
         stage('Docker Login and Push') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-pwd', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh "echo $PASS | docker login -u $USER --password-stdin"
-                    sh 'docker push addi2/endtoendproject:v1'
+                    sh '''
+                        echo $PASS | sudo docker login -u $USER --password-stdin
+                        sudo docker push addi2/endtoendproject:v1
+                    '''
                 }
             }
         }
