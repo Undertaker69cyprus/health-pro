@@ -1,42 +1,59 @@
-pipeline{
+pipeline {
     agent any
-    stages{
-        stage('checkout the code from github'){
-            steps{
-                 git url: 'https://github.com/akshu20791/health-care-project/'
-                 echo 'github url checkout'
+    
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git url: 'https://github.com/Undertaker69cyprus/health-pro/', branch: 'master'
+                echo 'GitHub repository checked out'
             }
         }
-        stage('codecompile'){
-            steps{
-                echo 'starting compiling'
-                sh 'mvn compile'
+        
+        stage('Build and Test') {
+            steps {
+                echo 'Starting compilation and tests'
+                sh 'mvn clean compile test'
             }
         }
-        stage('codetesting'){
-            steps{
-                sh 'mvn test'
-            }
-        }
-        stage('qa check'){
-            steps{
+        
+        stage('Quality Analysis') {
+            steps {
                 sh 'mvn checkstyle:checkstyle'
             }
         }
-        stage('package the code'){
-            steps{
-                sh 'mvn package'
+        
+        stage('Package') {
+            steps {
+                sh 'mvn package install'
             }
         }
-        stage('run dockerfile'){
-          steps{
-               sh 'docker build -t myimg1 .'
-           }
-         }
-        stage('port expose'){
-            steps{
-                sh 'docker run -dt -p 8082:8082 --name c001 myimg1'
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh 'docker build -t addi2/endtoendproject:v1 .'
+                }
             }
-        }   
+        }
+        
+        stage('Docker Login and Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-pwd', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh "echo $PASS | docker login -u $USER --password-stdin"
+                    sh 'docker push addi2/endtoendproject:v1'
+                }
+            }
+        }
+        
+        stage('Deploy to Kubernetes') {
+            when { 
+                expression { env.GIT_BRANCH == 'master' }
+            }
+            steps {
+                script {
+                    kubernetesDeploy(configs: 'deploymentservice.yaml', kubeconfigId: 'k8sconfigpwd')
+                }
+            }
+        }
     }
 }
